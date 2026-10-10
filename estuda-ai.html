@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estuda AI – Estude o que mais cai na prova</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;font-family:system-ui,Segoe UI,Arial,sans-serif}
+  :root{--p:#4f46e5;--bg:#f4f5f9;--card:#fff;--tx:#1f2430;--mut:#667;--bd:#cdd1dc;--ok:#16a34a;--bad:#dc2626;--soft:#e8eaf6}
+  body.dark{--bg:#12131a;--card:#1c1e29;--tx:#e8e9f0;--mut:#9aa;--bd:#33364a;--soft:#2a2d40}
+  body{background:var(--bg);color:var(--tx);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+  nav{background:#1e1b4b;color:#fff;padding:20px 12px;display:flex;flex-direction:column;gap:4px}
+  nav h2{font-size:1.1rem;margin:0 8px 16px}
+  nav button{background:none;border:0;color:#c7d2fe;text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:.95rem}
+  nav button.on,nav button:hover{background:#312e81;color:#fff}
+  nav .sp{flex:1}
+  main{padding:28px;max-width:980px;width:100%}
+  h1{font-size:1.4rem;margin-bottom:6px}.sub{color:var(--mut);margin-bottom:16px;font-size:.9rem}
+  .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 1px 8px #0002;margin-bottom:16px}
+  label{font-size:.8rem;font-weight:600;display:block;margin:10px 0 4px}
+  input,select,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:.95rem;background:var(--card);color:var(--tx)}
+  textarea{min-height:110px;resize:vertical}
+  .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+  button.btn{background:var(--p);color:#fff;border:0;padding:11px 18px;border-radius:8px;font-weight:600;cursor:pointer;margin-top:12px;margin-right:6px}
+  button.btn.sec{background:var(--soft);color:var(--tx)}
+  button.btn:disabled{opacity:.5}
+  .hidden{display:none!important}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .stat{background:var(--card);border-radius:12px;padding:16px;text-align:center;box-shadow:0 1px 8px #0002}
+  .stat b{font-size:1.8rem;display:block;color:var(--p)}
+  .md{white-space:pre-wrap;line-height:1.55}
+  .opt{display:block;width:100%;text-align:left;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:10px;margin:6px 0;cursor:pointer}
+  .opt.ok{background:#16a34a33;border-color:var(--ok)}.opt.bad{background:#dc262633;border-color:var(--bad)}
+  .fc{min-height:160px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:1.2rem;padding:24px;cursor:pointer;background:var(--card);border-radius:12px;box-shadow:0 1px 8px #0002}
+  .chat{height:400px;overflow-y:auto;background:var(--bg);border-radius:8px;padding:12px;margin-bottom:10px}
+  .m{margin:8px 0;padding:8px 12px;border-radius:10px;max-width:85%;white-space:pre-wrap}
+  .m.u{background:var(--p);color:#fff;margin-left:auto}.m.a{background:var(--soft)}
+  .day{padding:10px 0;border-bottom:1px solid var(--bd)}
+  .bar{height:10px;border-radius:5px;background:var(--soft);overflow:hidden}.bar i{display:block;height:100%;background:var(--p)}
+  .tag{display:inline-block;font-size:.72rem;padding:2px 8px;border-radius:10px;margin-left:6px;font-weight:600}
+  .alta,.dificil{background:#dc262626;color:#dc2626}.media,.medio{background:#d9770626;color:#d97706}.baixa,.facil{background:#16a34a26;color:#16a34a}
+  .topic{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--bd);gap:8px}
+  .topic button{font-size:.75rem;padding:4px 10px;border-radius:6px;border:0;background:var(--soft);color:var(--tx);cursor:pointer}
+  .steps{display:flex;gap:6px;margin-bottom:14px}.steps i{flex:1;height:5px;border-radius:3px;background:var(--bd)}.steps i.on{background:var(--p)}
+  .disc{font-size:.78rem;color:var(--mut);margin-top:8px}
+  @media(max-width:760px){body{grid-template-columns:1fr}nav{flex-direction:row;overflow-x:auto}nav h2,nav .sp{display:none}}
+</style>
+</head>
+<body>
+<div id="auth" style="position:fixed;inset:0;background:var(--bg);z-index:9;display:flex;align-items:center;justify-content:center"><div class="card" style="width:360px"><h1>🎓 Estuda AI</h1><p class="sub">Entre ou crie sua conta</p><label>Nome (para criar conta)</label><input id="aNome"><label>E-mail</label><input id="aEmail" type="email"><label>Senha</label><input id="aSenha" type="password"><p id="aErr" style="color:var(--bad);font-size:.85rem;margin-top:8px"></p><button class="btn" id="aLogin">Entrar</button><button class="btn sec" id="aReg">Criar conta</button></div></div>
+<nav>
+  <h2>🎓 Estuda AI</h2>
+  <button data-v="home" class="on">Início</button>
+  <button data-v="edital">Edital & Hacker da Banca</button>
+  <button data-v="plan">Plano de estudos</button>
+  <button data-v="guide">Guia de estudo</button>
+  <button data-v="sim">Simulados</button>
+  <button data-v="fc">Flashcards</button>
+  <button data-v="sum">Resumos</button>
+  <button data-v="tutor">TutoriAI</button>
+  <div class="sp"></div>
+  <button id="theme">🌓 Modo claro/escuro</button>
+  <button id="who" style="cursor:default"></button>
+  <button id="logout">Sair</button>
+  <button data-v="cfg">Configurações</button>
+</nav>
+<main>
+
+<!-- INÍCIO / ONBOARDING -->
+<section id="v-home">
+  <div id="onb" class="card">
+    <h1>Vamos configurar seu estudo</h1>
+    <p class="sub">Leva 1 minuto. Você poderá alterar depois.</p>
+    <div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+    <div class="row">
+      <div><label>1. Horas disponíveis por dia</label><input id="oH" type="number" min="1" max="12" value="3"></div>
+      <div><label>3. Seu perfil</label>
+        <select id="oN"><option value="iniciante">Iniciante</option><option value="intermediario">Intermediário</option><option value="avancado">Avançado</option></select></div>
+    </div>
+    <label>2. Edital do concurso (envie PDF/TXT ou cole o texto)</label>
+    <input type="file" id="oF" accept=".pdf,.txt">
+    <textarea id="oT" placeholder="…ou cole aqui o conteúdo programático do cargo desejado"></textarea>
+    <button class="btn" id="bOnb">Analisar edital e criar meu plano</button>
+    <p class="disc" id="oSt"></p>
+  </div>
+  <div id="dash" class="hidden">
+    <h1>Seu painel</h1><p class="sub" id="dSub"></p>
+    <div class="stats">
+      <div class="stat"><b id="sAns">0</b>Questões respondidas</div>
+      <div class="stat"><b id="sAcc">0%</b>Acerto geral</div>
+      <div class="stat"><b id="sCards">0</b>Flashcards</div>
+      <div class="stat"><b id="sDue">0</b>Revisar hoje</div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3 style="margin-bottom:8px">Desempenho por matéria</h3><div id="bySubj"></div></div>
+    <button class="btn sec" id="bRedo">Configurar outro concurso</button>
+  </div>
+</section>
+
+<!-- EDITAL & HACKER -->
+<section id="v-edital" class="hidden">
+  <h1>Hacker da Banca</h1>
+  <p class="sub">A IA lê o edital e estima o que mais costuma cair, o nível e as pegadinhas típicas da banca.</p>
+  <div id="hkOut"></div>
+</section>
+
+<!-- PLANO -->
+<section id="v-plan" class="hidden">
+  <h1>Plano de estudos personalizado</h1>
+  <p class="sub">Prioriza as matérias de maior peso e os tópicos de maior incidência.</p>
+  <div id="planOut"></div>
+</section>
+
+<!-- GUIA DE ESTUDO -->
+<section id="v-guide" class="hidden">
+  <h1>Guia de estudo</h1>
+  <p class="sub">Resumo objetivo e lógico do tópico que você vai estudar.</p>
+  <div class="card">
+    <label>Tópico</label><input id="gIn" placeholder="Escolha na lista do edital ou digite">
+    <button class="btn" id="bGuide">Gerar guia</button>
+  </div>
+  <div class="card md hidden" id="gOut"></div>
+</section>
+
+<!-- SIMULADOS -->
+<section id="v-sim" class="hidden">
+  <h1>Simulados</h1>
+  <div class="card">
+    <div class="row">
+      <div><label>Matéria / assunto</label><select id="qMat"></select></div>
+      <div><label>Estilo da banca</label>
+        <select id="qBanca"><option>Cebraspe</option><option>FGV</option><option>FCC</option><option>Vunesp</option><option>IBFC</option><option>Quadrix</option></select></div>
+      <div><label>Nº de questões (recomendado 15–20)</label><input id="qN" type="number" min="1" max="30" value="15"></div>
+    </div>
+    <button class="btn" id="bQuiz">Gerar simulado</button>
+    <p class="disc">Questões geradas por IA no estilo da banca; podem conter imprecisões. Confira com a legislação/fonte oficial.</p>
+  </div>
+  <div id="qScore" class="card hidden"></div>
+  <div id="qOut"></div>
+</section>
+
+<!-- FLASHCARDS -->
+<section id="v-fc" class="hidden">
+  <h1>Flashcards</h1>
+  <div class="card">
+    <label>Gerar com IA (recomendado 5 a 15)</label>
+    <div class="row">
+      <div><input id="fgT" placeholder="Tópico"></div>
+      <div><input id="fgN" type="number" min="3" max="20" value="10"></div>
+    </div>
+    <button class="btn" id="bFcGen">Gerar flashcards</button>
+    <hr style="margin:16px 0;border:0;border-top:1px solid var(--bd)">
+    <div class="row">
+      <div><label>Frente</label><input id="fcQ"></div>
+      <div><label>Verso</label><input id="fcA"></div>
+    </div>
+    <button class="btn sec" id="bAddFc">Adicionar manualmente</button>
+  </div>
+  <div id="fcStudy"></div>
+</section>
+
+<!-- RESUMOS -->
+<section id="v-sum" class="hidden">
+  <h1>Resumos complementares</h1>
+  <p class="sub">Importe um material (PDF/TXT) ou cole texto — ou apenas digite um assunto.</p>
+  <div class="card">
+    <input type="file" id="sF" accept=".pdf,.txt">
+    <label>Texto ou assunto</label>
+    <textarea id="sIn"></textarea>
+    <button class="btn" id="bSum">Gerar resumo</button>
+  </div>
+  <div class="card md hidden" id="sOut"></div>
+</section>
+
+<!-- TUTORIAI -->
+<section id="v-tutor" class="hidden">
+  <h1>TutoriAI</h1>
+  <p class="sub">Seu professor particular 24h. Cole uma questão ou pergunte sobre qualquer conteúdo.</p>
+  <div class="card">
+    <div class="chat" id="chat"></div>
+    <form id="chatForm" style="display:flex;gap:8px">
+      <input id="chatIn" placeholder="Tire sua dúvida..." autocomplete="off">
+      <button class="btn" style="margin:0">Enviar</button>
+    </form>
+  </div>
+</section>
+
+<!-- CONFIG -->
+<section id="v-cfg" class="hidden">
+  <h1>Configurações</h1>
+  <div class="card">
+    <label>Chave da API Gemini (salva na sua conta, no banco SQLite do servidor)</label>
+    <input id="key" type="password" placeholder="AIza...">
+    <label>Modelo</label><input id="model">
+    <button class="btn" id="bSaveCfg">Salvar</button>
+    <p class="disc">Chave gratuita em aistudio.google.com/apikey.</p>
+  </div>
+  <div class="card"><button class="btn sec" id="bReset">Apagar todos os meus dados</button></div>
+</section>
+
+</main>
+<script>
+const $ = id => document.getElementById(id);
+/* ---------- dados: cache em memória + gravação no SQLite via API ---------- */
+let TOKEN = localStorage.getItem('ea_token')||'';
+const cache = {};
+async function api(method,url,body){
+  const r=await fetch(url,{method,headers:{'Content-Type':'application/json',...(TOKEN?{Authorization:'Bearer '+TOKEN}:{})},body:body?JSON.stringify(body):undefined});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){ if(r.status===401&&TOKEN&&url!=='/api/logout'&&!url.startsWith('/api/state')) logoutLocal(); throw new Error(d.erro||'Erro de servidor'); }
+  return d;
+}
+const store = {
+  get:(k,d)=>cache[k]!==undefined?cache[k]:d,
+  set:(k,v)=>{cache[k]=v; api('PUT','/api/kv/'+k,{v}).catch(e=>console.warn('Falha ao salvar',k,e.message))}
+};
+let cfg,cards,stats,prof;   // prof = {horas,nivel,edital,analise}
+function loadState(){
+  cfg = store.get('cfg',{key:'',model:'gemini-2.5-flash'});
+  cards = store.get('cards',[]); stats = store.get('stats',{}); prof = store.get('prof',null);
+  $('key').value=cfg.key; $('model').value=cfg.model;
+  document.body.classList.toggle('dark',!!store.get('dark',false));
+}
+$('theme').onclick=()=>{document.body.classList.toggle('dark');store.set('dark',document.body.classList.contains('dark'))};
+
+/* ---------- login ---------- */
+function logoutLocal(){TOKEN='';localStorage.removeItem('ea_token');location.reload()}
+async function boot(){
+  if(!TOKEN){ $('auth').classList.remove('hidden'); return; }
+  try{
+    const d=await api('GET','/api/state'); Object.assign(cache,d.state); loadState();
+    $('who').textContent='👤 '+d.user.nome; $('auth').classList.add('hidden'); home();
+  }catch{ TOKEN=''; localStorage.removeItem('ea_token'); $('auth').classList.remove('hidden'); }
+}
+async function authSubmit(mode){
+  $('aErr').textContent='';
+  try{
+    const d=await api('POST','/api/'+mode,{nome:$('aNome').value,email:$('aEmail').value,senha:$('aSenha').value});
+    TOKEN=d.token; localStorage.setItem('ea_token',TOKEN); await boot();
+  }catch(e){$('aErr').textContent=e.message}
+}
+$('aLogin').onclick=()=>authSubmit('login');
+$('aReg').onclick=()=>authSubmit('register');
+$('logout').onclick=async()=>{try{await api('POST','/api/logout')}catch{} logoutLocal()};
+
+const esc = s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- navegação ---------- */
+function go(v){
+  document.querySelectorAll('nav button[data-v]').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
+  document.querySelectorAll('main>section').forEach(s=>s.classList.toggle('hidden',s.id!=='v-'+v));
+  ({home:home,edital:renderHack,plan:renderPlan,fc:studyFc,sim:fillMats})[v]?.();
+}
+document.querySelectorAll('nav button[data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
+
+/* ---------- IA ---------- */
+async function ai(prompt,json=false){
+  if(!cfg.key) throw new Error('Configure sua chave da API em Configurações.');
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent?key=${cfg.key}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:json?{responseMimeType:'application/json'}:{}})});
+  const d=await r.json(); if(!r.ok) throw new Error(d.error?.message||'Erro na API');
+  const t=d.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||'';
+  return json?JSON.parse(t):t;
+}
+async function run(btn,fn){const o=btn.textContent;btn.disabled=true;btn.textContent='Processando...';
+  try{await fn()}catch(e){alert(e.message)}finally{btn.disabled=false;btn.textContent=o}}
+
+/* ---------- leitura de arquivos ---------- */
+async function readFile(f){
+  if(!f) return '';
+  if(f.name.toLowerCase().endsWith('.pdf')){
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise; let out='';
+    for(let i=1;i<=pdf.numPages&&out.length<60000;i++){
+      const p=await pdf.getPage(i); out+=(await p.getTextContent()).items.map(x=>x.str).join(' ')+'\n';
+    } return out;
+  }
+  return await f.text();
+}
+
+/* ---------- onboarding + hacker da banca ---------- */
+$('bOnb').onclick=e=>run(e.target,async()=>{
+  let ed=($('oT').value+'\n'+await readFile($('oF').files[0])).trim();
+  if(ed.length<30) throw new Error('Envie o edital (PDF/TXT) ou cole o conteúdo programático.');
+  ed=ed.slice(0,40000); $('oSt').textContent='Analisando edital com IA...';
+  const a=await ai(`Você é analista de concursos públicos brasileiros. Analise o edital abaixo. Identifique a banca, o cargo, e para cada disciplina estime (com base no que historicamente a banca costuma cobrar) o peso percentual na prova e os tópicos do conteúdo programático com incidência (alta/media/baixa) e dificuldade (facil/medio/dificil). Liste também as pegadinhas típicas dessa banca. Seja honesto: são estimativas.
+Responda JSON: {"banca":"","cargo":"","materias":[{"nome":"","peso":0,"topicos":[{"nome":"","incidencia":"alta","dificuldade":"medio"}]}],"pegadinhas":[""]}
+EDITAL:\n${ed}`,true);
+  prof={horas:+$('oH').value,nivel:$('oN').value,edital:ed.slice(0,3000),analise:a};
+  store.set('prof',prof); $('oSt').textContent=''; go('edital');
+});
+function home(){
+  const has=!!prof; $('onb').classList.toggle('hidden',has); $('dash').classList.toggle('hidden',!has);
+  if(!has) return;
+  $('dSub').textContent=`${prof.analise.cargo||'Seu concurso'} · ${prof.analise.banca||''} · ${prof.horas}h/dia · ${prof.nivel}`;
+  let ok=0,tot=0; Object.values(stats).forEach(s=>{ok+=s.ok;tot+=s.total});
+  $('sAns').textContent=tot; $('sAcc').textContent=tot?Math.round(ok/tot*100)+'%':'0%';
+  $('sCards').textContent=cards.length; $('sDue').textContent=cards.filter(c=>c.due<=Date.now()).length;
+  $('bySubj').innerHTML=Object.entries(stats).map(([m,s])=>{const p=Math.round(s.ok/s.total*100);
+    return `<div style="margin:10px 0"><div style="display:flex;justify-content:space-between"><span>${esc(m)}</span><span>${p}% (${s.ok}/${s.total})</span></div><div class="bar"><i style="width:${p}%"></i></div></div>`}).join('')||'<p class="sub">Faça simulados para ver sua evolução.</p>';
+}
+$('bRedo').onclick=()=>{prof=null;store.set('prof',null);home()};
+
+function needProf(el){ if(prof) return false; $(el).innerHTML='<div class="card">Envie seu edital na tela <b>Início</b> primeiro.</div>'; return true }
+function renderHack(){
+  if(needProf('hkOut')) return; const a=prof.analise;
+  const tp=t=>`<span class="tag ${t}">${t}</span>`;
+  $('hkOut').innerHTML=`<div class="card"><b>${esc(a.cargo)}</b> · Banca: <b>${esc(a.banca)}</b></div>`+
+  (a.materias||[]).map(m=>`<div class="card"><div style="display:flex;justify-content:space-between"><h3>${esc(m.nome)}</h3><b>${m.peso}% da prova</b></div>
+    <div class="bar" style="margin:8px 0"><i style="width:${Math.min(100,m.peso*2)}%"></i></div>
+    ${m.topicos.map(t=>`<div class="topic"><span>${esc(t.nome)}</span><span>incidência${tp(t.incidencia)} dificuldade${tp(t.dificuldade)}
+      <button data-t="${esc(t.nome)}">Estudar</button></span></div>`).join('')}</div>`).join('')+
+  `<div class="card"><h3>⚠ Pegadinhas típicas da banca</h3><ul style="margin:8px 0 0 20px">${(a.pegadinhas||[]).map(p=>`<li>${esc(p)}</li>`).join('')}</ul>
+   <p class="disc">Estimativas geradas por IA a partir do edital e do conhecimento geral sobre a banca — não vêm de um banco oficial de provas.</p></div>`;
+  $('hkOut').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>{$('gIn').value=b.dataset.t;go('guide')});
+}
+
+/* ---------- plano de estudos (gerado localmente dos pesos) ---------- */
+function renderPlan(){
+  if(needProf('planOut')) return;
+  const ms=prof.analise.materias, tot=ms.reduce((s,m)=>s+m.peso,0)||1, H=prof.horas;
+  const rank={alta:0,media:1,baixa:2}, fd={facil:.8,medio:1,dificil:1.3};
+  // TODOS os tópicos do edital, ordenados: incidência (alta→baixa), depois peso da matéria
+  const topics=ms.flatMap(m=>m.topicos.map(t=>({m:m.nome,t:t.nome,inc:t.incidencia,peso:m.peso,
+    h:Math.max(.5,+(H*m.peso/tot*2*(fd[t.dificuldade]||1)).toFixed(1))})))
+    .sort((a,b)=>(rank[a.inc]??1)-(rank[b.inc]??1)||b.peso-a.peso);
+  const dias=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const weeks=[]; let cur=null, di=0, left=H, i=0, rest=0;
+  const newWeek=()=>{cur={days:[]};weeks.push(cur);di=0};
+  const newDay=()=>{ if(di>=6) newWeek(); cur.days.push({n:dias[di++],items:[]}); left=H; };
+  newWeek(); newDay();
+  while(i<topics.length){
+    const t=topics[i]; const need=rest||t.h; const h=Math.min(need,left);
+    cur.days[cur.days.length-1].items.push(`${esc(t.m)} → ${esc(t.t)} <span class="tag ${t.inc}">${t.inc}</span> (${+h.toFixed(1)}h)`);
+    left-=h; rest=+(need-h).toFixed(2); if(rest<=0){rest=0;i++}
+    if(left<0.2&&i<topics.length) newDay();
+  }
+  const study=weeks.length;
+  const rev=Math.max(1,Math.round(study*0.15));           // semanas finais de revisão/simulados
+  const weekHtml=(w,k)=>`<details ${k===0?'open':''} class="card"><summary><b>Semana ${k+1}</b></summary>
+    ${w.days.map(d=>`<div class="day"><b>${d.n}</b><ul style="margin:4px 0 0 20px">${d.items.map(x=>`<li>${x}</li>`).join('')}</ul></div>`).join('')}
+    <div class="day"><b>Domingo</b> — Revisão dos flashcards + simulado da semana</div></details>`;
+  const revHtml=Array.from({length:rev},(_,k)=>`<details class="card"><summary><b>Semana ${study+k+1} · Revisão final</b></summary>
+    <div class="day">Simulados completos da banca (${esc(prof.analise.banca||'')}), refazer questões erradas e revisar flashcards vencidos. Reforce os tópicos de maior incidência e dificuldade.</div></details>`).join('');
+  const lvl={iniciante:'Comece pelos tópicos de dificuldade fácil e incidência alta; avance gradualmente.',intermediario:'Alterne teoria e questões na mesma proporção.',avancado:'Priorize questões e simulados; use a teoria só para lacunas.'}[prof.nivel];
+  $('planOut').innerHTML=`<div class="card"><p><b>Cobertura:</b> todos os ${topics.length} tópicos do edital em <b>${study} semanas</b> de estudo + ${rev} de revisão final (${study+rev} no total), com ${H}h/dia, de segunda a sábado.</p>
+    <p style="margin-top:6px"><b>Ordem:</b> incidência alta → média → baixa; dentro de cada nível, as matérias de maior peso primeiro.</p>
+    <p style="margin-top:6px"><b>Estratégia (${prof.nivel}):</b> ${lvl}</p>
+    <p class="disc">Se a prova for antes do fim do plano, estude só até onde der: a ordem já prioriza o que mais cai.</p></div>
+    ${weeks.map(weekHtml).join('')}${revHtml}`;
+}
+
+/* ---------- guia de estudo ---------- */
+$('bGuide').onclick=e=>run(e.target,async()=>{
+  const ctx=prof?`Concurso: ${prof.analise.cargo}, banca ${prof.analise.banca}, nível do aluno: ${prof.nivel}. `:'';
+  $('gOut').textContent=await ai(`${ctx}Crie um guia de estudo objetivo e lógico, em português, sobre "${$('gIn').value}": conceitos essenciais, o que a banca mais cobra, pegadinhas comuns e um mini-checklist final. Seja correto; se não tiver certeza de algo, diga.`);
+  $('gOut').classList.remove('hidden');
+});
+
+/* ---------- simulados ---------- */
+function fillMats(){
+  const l=prof?prof.analise.materias.map(m=>m.nome):[];
+  $('qMat').innerHTML=l.map(n=>`<option>${esc(n)}</option>`).join('')+'<option value="__livre">Outro (digitar)</option>';
+  if(prof) $('qBanca').value=[...$('qBanca').options].find(o=>prof.analise.banca?.toLowerCase().includes(o.value.toLowerCase()))?.value||'Cebraspe';
+}
+$('bQuiz').onclick=e=>run(e.target,async()=>{
+  let mat=$('qMat').value; if(mat==='__livre') mat=prompt('Qual matéria/assunto?')||'Geral';
+  const n=Math.min(30,+$('qN').value||15), banca=$('qBanca').value;
+  const topicos=prof?.analise.materias.find(m=>m.nome===mat)?.topicos.filter(t=>t.incidencia!=='baixa').map(t=>t.nome).join('; ')||'';
+  const fmt=banca==='Cebraspe'?'itens CERTO/ERRADO (alternativas ["Certo","Errado"])':'múltipla escolha com 5 alternativas';
+  const noBanco=await api('GET',`/api/questoes?banca=${encodeURIComponent(banca)}&materia=${encodeURIComponent(mat)}&n=${n}`).catch(()=>[]);
+  const faltam=n-noBanco.length;
+  const novas=faltam>0?await ai(`Gere ${faltam} questões inéditas de ${mat} no estilo da banca ${banca}, formato ${fmt}. Priorize os tópicos: ${topicos||mat}. Responda JSON: [{"enunciado":"","alternativas":[""],"correta":0,"explicacao":""}] (correta = índice da alternativa certa; explicacao comenta a certa e por que as outras estão erradas).`,true):[];
+  if(novas.length) api('POST','/api/questoes',{banca,materia:mat,questoes:novas}).catch(()=>{});
+  const qs=[...noBanco,...novas].sort(()=>Math.random()-.5);
+  const out=$('qOut'); out.innerHTML=''; $('qScore').classList.add('hidden');
+  let ans=0,hits=0;
+  qs.forEach((q,i)=>{
+    const d=document.createElement('div'); d.className='card'; d.innerHTML=`<b>${i+1}.</b> ${esc(q.enunciado)}`;
+    const ex=document.createElement('div'); ex.className='md hidden'; ex.style.marginTop='10px'; ex.textContent='Comentário: '+q.explicacao;
+    let done=false;
+    q.alternativas.forEach((a,j)=>{
+      const b=document.createElement('button'); b.className='opt'; b.textContent=(q.alternativas.length>2?'ABCDE'[j]+') ':'')+a;
+      b.onclick=()=>{ if(done)return; done=true; const ok=j===q.correta; b.classList.add(ok?'ok':'bad');
+        if(!ok) d.querySelectorAll('.opt')[q.correta].classList.add('ok'); ex.classList.remove('hidden');
+        const s=stats[mat]||(stats[mat]={ok:0,total:0}); s.total++; if(ok){s.ok++;hits++} store.set('stats',stats);
+        ans++; if(ans===qs.length){const sc=$('qScore');sc.classList.remove('hidden');sc.innerHTML=`<h3>Resultado: ${hits}/${qs.length} (${Math.round(hits/qs.length*100)}%)</h3>`;sc.scrollIntoView()} };
+      d.append(b);
+    });
+    d.append(ex); out.append(d);
+  });
+});
+
+/* ---------- flashcards ---------- */
+function addCards(l,s){l.forEach(c=>cards.push({q:c.q,a:c.a,s,ease:2.5,int:0,due:Date.now()}));store.set('cards',cards)}
+$('bFcGen').onclick=e=>run(e.target,async()=>{
+  const n=+$('fgN').value||10, t=$('fgT').value; if(!t) throw new Error('Informe o tópico.');
+  const l=await ai(`Gere ${n} flashcards objetivos em português para concursos sobre: ${t}. Responda JSON: [{"q":"","a":""}]`,true);
+  addCards(l,t); studyFc();
+});
+$('bAddFc').onclick=()=>{ if(!$('fcQ').value||!$('fcA').value)return; addCards([{q:$('fcQ').value,a:$('fcA').value}],'');$('fcQ').value=$('fcA').value='';studyFc()};
+function studyFc(){
+  const due=cards.filter(c=>c.due<=Date.now()), box=$('fcStudy');
+  if(!due.length){box.innerHTML=`<div class="card">${cards.length?'🎉 Nada para revisar agora.':'Gere ou adicione flashcards acima.'}</div>`;return}
+  const c=due[0]; let shown=false;
+  box.innerHTML=`<div class="fc" id="fcCard">${esc(c.q)}</div><p class="sub" style="margin-top:8px">${due.length} para revisar · clique no cartão para virar</p><div id="fcBtns"></div>`;
+  $('fcCard').onclick=()=>{ if(shown)return; shown=true; $('fcCard').textContent=c.a;
+    $('fcBtns').innerHTML=[['Errei',0],['Difícil',3],['Bom',4],['Fácil',5]].map(([l,q])=>`<button class="btn sec" data-q="${q}">${l}</button>`).join('');
+    $('fcBtns').querySelectorAll('button').forEach(b=>b.onclick=()=>{const q=+b.dataset.q;
+      if(q<3){c.int=0;c.due=Date.now()+60000}else{c.int=c.int===0?1:c.int===1?3:Math.round(c.int*c.ease);c.due=Date.now()+c.int*86400000}
+      c.ease=Math.max(1.3,c.ease+0.1-(5-q)*(0.08+(5-q)*0.02)); store.set('cards',cards); studyFc()}); };
+}
+
+/* ---------- resumos ---------- */
+$('bSum').onclick=e=>run(e.target,async()=>{
+  const txt=($('sIn').value+'\n'+await readFile($('sF').files[0])).trim().slice(0,40000);
+  if(!txt) throw new Error('Informe um assunto ou envie um arquivo.');
+  $('sOut').textContent=await ai(`Faça um resumo objetivo e didático, em português, para concurso público, do seguinte conteúdo/assunto. Use tópicos e destaque pontos de prova:\n${txt}`);
+  $('sOut').classList.remove('hidden');
+});
+
+/* ---------- TutoriAI ---------- */
+let hist=[];
+function bubble(t,c){const d=document.createElement('div');d.className='m '+c;d.textContent=t;$('chat').append(d);$('chat').scrollTop=1e9;return d}
+bubble('Olá! Sou o TutoriAI. Cole uma questão ou pergunte sobre qualquer conteúdo.','a');
+$('chatForm').onsubmit=async e=>{
+  e.preventDefault(); const t=$('chatIn').value.trim(); if(!t)return; $('chatIn').value='';
+  bubble(t,'u'); hist.push('Aluno: '+t); const w=bubble('...','a');
+  try{
+    const ctx=prof?`O aluno estuda para ${prof.analise.cargo} (banca ${prof.analise.banca}), nível ${prof.nivel}. `:'';
+    const r=await ai(`Você é um professor particular especialista em concursos públicos brasileiros. ${ctx}Responda de forma clara e objetiva em português. Se não tiver certeza, avise em vez de inventar.\n\n${hist.slice(-10).join('\n')}\nProfessor:`);
+    w.textContent=r; hist.push('Professor: '+r);
+  }catch(err){w.textContent='⚠ '+err.message}
+};
+
+/* ---------- config ---------- */
+$('bSaveCfg').onclick=()=>{cfg={key:$('key').value.trim(),model:$('model').value.trim()||'gemini-2.5-flash'};store.set('cfg',cfg);alert('Salvo!')};
+$('bReset').onclick=async()=>{if(confirm('Apagar todos os seus dados?')){await api('DELETE','/api/state');location.reload()}};
+boot();
+</script>
+</body>
+</html>

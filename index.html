@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Privada</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<style>
+  *{box-sizing:border-box;margin:0;font-family:system-ui,Segoe UI,Arial,sans-serif}
+  body{background:#f1f3f5;color:#222;min-height:100vh}
+  .hidden{display:none!important}
+  .card{background:#fff;border-radius:12px;box-shadow:0 2px 14px #0001;max-width:440px;margin:40px auto;padding:28px}
+  .card img.logo{width:100%;border-radius:8px;margin-bottom:16px}
+  h1{font-size:1.25rem;text-align:center;margin-bottom:18px}
+  label{font-size:.85rem;font-weight:600;display:block;margin:12px 0 4px}
+  input[type=text],input[type=tel],input[type=email]{width:100%;padding:12px;border:1px solid #ccd;border-radius:8px;font-size:1rem}
+  button.cta{width:100%;margin-top:18px;padding:14px;border:0;border-radius:8px;background:var(--btn,#007509);color:#fff;font-weight:700;font-size:1rem;cursor:pointer}
+  .err{color:#c00;font-size:.8rem;margin-top:4px}
+  .count{display:flex;gap:12px;justify-content:center;margin:20px 0}
+  .count div{background:#f1f3f5;border-radius:8px;padding:12px 14px;text-align:center;min-width:70px}
+  .count b{display:block;font-size:1.6rem}
+  .count span{font-size:.7rem;color:#666}
+  #room{display:grid;grid-template-columns:1fr 380px;gap:20px;padding:16px 24px;height:100vh}
+  #left h2{font-size:1.1rem;margin-bottom:10px}
+  .player{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:16/9}
+  video{width:100%;height:100%;display:block}
+  .overlay{position:absolute;inset:0;background:#000b;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;cursor:pointer;font-size:1.2rem;text-align:center}
+  .overlay button{padding:12px 24px;border:0;border-radius:8px;background:#e11;color:#fff;font-weight:700;font-size:1rem;cursor:pointer}
+  .badge{position:absolute;top:12px;left:12px;background:#fff;border-radius:6px;padding:6px 10px;font-size:.8rem;font-weight:600}
+  #side{display:flex;flex-direction:column;min-height:0}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;background:#dde1e5;border-radius:8px;padding:4px;margin-bottom:10px}
+  .tabs button{border:0;background:none;padding:8px;border-radius:6px;font-weight:600;cursor:pointer}
+  .tabs button.on{background:#fff}
+  .panel{flex:1;background:#fff;border-radius:8px;padding:16px;overflow-y:auto;min-height:0}
+  .msg{margin-bottom:10px;font-size:.9rem}.msg b{margin-right:6px}
+  .msg.me b{color:#007509}
+  .send{display:flex;gap:8px;margin-top:10px}
+  .send input{flex:1;padding:12px;border:1px solid #ccd;border-radius:8px}
+  .send button{padding:0 18px;border:0;border-radius:8px;background:#222;color:#fff;cursor:pointer}
+  .offer img{width:100%;border-radius:8px;margin:10px 0}
+  .offer h3{text-align:center}
+  .price{text-align:center;margin:10px 0}
+  .price s{color:#888}.price b{display:block;font-size:2rem;color:#16a34a}
+  .offer a{display:block;text-align:center;text-decoration:none;background:#16a34a;color:#fff;padding:14px;border-radius:8px;font-weight:700}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e11;margin-right:6px}
+  @media(max-width:860px){#room{grid-template-columns:1fr;height:auto;padding:0}.player{border-radius:0}#left h2{padding:10px 12px}#side{padding:0 12px 12px;height:60vh}}
+</style>
+</head>
+<body>
+
+<!-- 1. CHECK-IN -->
+<section id="login" class="card">
+  <img class="logo" id="logoImg" alt="" hidden>
+  <h1 id="loginTitle"></h1>
+  <form id="loginForm" novalidate>
+    <label>Nome</label>
+    <input type="text" id="name" placeholder="Como podemos te chamar">
+    <div class="err" id="nameErr"></div>
+    <label>WhatsApp</label>
+    <input type="tel" id="phone" placeholder="Insira seu WhatsApp">
+    <div class="err" id="phoneErr"></div>
+    <button class="cta" id="loginBtn">ENTRAR AGORA</button>
+  </form>
+</section>
+
+<!-- 2. SALA DE ESPERA -->
+<section id="wait" class="card hidden" style="text-align:center">
+  <h1>Sala de Espera</h1>
+  <p>Estamos prestes a começar. Por favor aguarde um momento.</p>
+  <div class="count">
+    <div><b id="cD">0</b><span>dias</span></div>
+    <div><b id="cH">0</b><span>horas</span></div>
+    <div><b id="cM">0</b><span>minutos</span></div>
+    <div><b id="cS">0</b><span>segundos</span></div>
+  </div>
+</section>
+
+<!-- 3. SALA DO WEBINAR -->
+<section id="room" class="hidden">
+  <div id="left">
+    <h2 id="roomTitle"></h2>
+    <div class="player">
+      <video id="video" playsinline></video>
+      <div class="badge"><span class="dot"></span><span id="liveLabel">Ao Vivo</span></div>
+      <div class="overlay" id="overlay">
+        <div>Sua aula já começou</div>
+        <button>Clique para assistir</button>
+      </div>
+    </div>
+  </div>
+  <div id="side">
+    <div class="tabs">
+      <button id="tabChat" class="on">Chat</button>
+      <button id="tabOffer" class="hidden">Oferta</button>
+    </div>
+    <div class="panel" id="chatPanel"><div id="msgs"></div></div>
+    <div class="panel hidden offer" id="offerPanel">
+      <h3 id="offerTitle"></h3>
+      <img id="offerBanner" alt="" hidden>
+      <div class="price"><s id="offerFrom"></s><b id="offerTo"></b></div>
+      <a id="offerLink" target="_blank" rel="noopener"></a>
+    </div>
+    <form class="send" id="sendForm">
+      <input id="msgInput" placeholder="Envie uma mensagem..." autocomplete="off">
+      <button>Enviar</button>
+    </form>
+  </div>
+</section>
+
+<script>
+/* ================= CONFIGURAÇÃO ================= */
+const CONFIG = {
+  webinarTitle: "Live Privada com Seu Nome",
+  loginTitle: "Faça o CHECK-IN para participar da live privada",
+  logo: "",                                   // URL da imagem de topo do check-in
+  buttonColor: "#007509",
+  video: "https://SEU-CDN/playlist.m3u8",     // URL HLS (.m3u8) ou .mp4
+  // Início da sessão: horário diário (modo evergreen) ou data fixa
+  mode: "daily",                              // "daily" | "fixed"
+  dailyTime: "18:50",                         // HH:MM (horário local)
+  fixedDate: "2026-12-01T18:50:00-03:00",
+  syncVideoTime: true,                        // quem entra tarde cai no ponto certo do vídeo
+  offer: {
+    showAtSeconds: 3640,                      // quando a aba Oferta aparece
+    title: "Condição especial",
+    banner: "",
+    from: "De R$ 1.497,00",
+    to: "R$ 747,00",
+    buttonText: "GARANTIR AGORA",
+    buttonColor: "#16A34A",
+    link: "https://seu-checkout.com"
+  }
+};
+/* ================================================ */
+
+const $ = id => document.getElementById(id);
+document.documentElement.style.setProperty('--btn', CONFIG.buttonColor);
+document.title = CONFIG.webinarTitle;
+$('loginTitle').textContent = CONFIG.loginTitle;
+$('roomTitle').textContent = CONFIG.webinarTitle;
+if (CONFIG.logo) { $('logoImg').src = CONFIG.logo; $('logoImg').hidden = false; }
+
+function sessionStart() {
+  if (CONFIG.mode === 'fixed') return new Date(CONFIG.fixedDate);
+  const [h, m] = CONFIG.dailyTime.split(':').map(Number);
+  const d = new Date(); d.setHours(h, m, 0, 0);
+  return d;   // hoje; se já passou, a sala abre e o vídeo sincroniza
+}
+
+let user = JSON.parse(localStorage.getItem('webinarUser') || 'null');
+
+$('loginForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('name').value.trim(), phone = $('phone').value.replace(/\D/g, '');
+  $('nameErr').textContent = name ? '' : 'O campo nome é obrigatório';
+  $('phoneErr').textContent = phone.length >= 10 ? '' : 'O campo telefone é obrigatório';
+  if (!name || phone.length < 10) return;
+  user = { name, phone };
+  localStorage.setItem('webinarUser', JSON.stringify(user));
+  enter();
+});
+
+function enter() {
+  $('login').classList.add('hidden');
+  const start = sessionStart();
+  if (Date.now() >= start) return openRoom(start);
+  $('wait').classList.remove('hidden');
+  const t = setInterval(() => {
+    let s = Math.max(0, Math.floor((start - Date.now()) / 1000));
+    $('cD').textContent = Math.floor(s / 86400);
+    $('cH').textContent = Math.floor(s % 86400 / 3600);
+    $('cM').textContent = Math.floor(s % 3600 / 60);
+    $('cS').textContent = s % 60;
+    if (s <= 0) { clearInterval(t); $('wait').classList.add('hidden'); openRoom(start); }
+  }, 250);
+}
+
+function openRoom(start) {
+  $('room').classList.remove('hidden');
+  const v = $('video');
+  const src = CONFIG.video;
+  if (src.endsWith('.m3u8') && window.Hls && Hls.isSupported()) {
+    const hls = new Hls(); hls.loadSource(src); hls.attachMedia(v);
+  } else v.src = src;
+
+  const elapsed = () => Math.max(0, (Date.now() - start) / 1000);
+  $('overlay').addEventListener('click', () => {
+    $('overlay').classList.add('hidden');
+    if (CONFIG.syncVideoTime) {
+      v.addEventListener('loadedmetadata', () => { v.currentTime = Math.min(elapsed(), v.duration || elapsed()); }, { once: true });
+      if (v.readyState >= 1) v.currentTime = elapsed();
+    }
+    v.play();
+  });
+
+  // Aba de oferta
+  const o = CONFIG.offer;
+  $('offerTitle').textContent = o.title;
+  if (o.banner) { $('offerBanner').src = o.banner; $('offerBanner').hidden = false; }
+  $('offerFrom').textContent = o.from; $('offerTo').textContent = o.to;
+  const a = $('offerLink'); a.textContent = o.buttonText; a.href = o.link; a.style.background = o.buttonColor;
+  setInterval(() => {
+    if (!v.paused && v.currentTime >= o.showAtSeconds) $('tabOffer').classList.remove('hidden');
+  }, 1000);
+}
+
+// Abas
+function tab(offer) {
+  $('tabChat').classList.toggle('on', !offer); $('tabOffer').classList.toggle('on', offer);
+  $('chatPanel').classList.toggle('hidden', offer); $('offerPanel').classList.toggle('hidden', !offer);
+  $('sendForm').classList.toggle('hidden', offer);
+}
+$('tabChat').onclick = () => tab(false);
+$('tabOffer').onclick = () => tab(true);
+
+// Chat (mensagens locais do próprio usuário; troque por WebSocket/backend para chat real)
+$('sendForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const t = $('msgInput').value.trim(); if (!t) return;
+  const d = document.createElement('div'); d.className = 'msg me';
+  const b = document.createElement('b'); b.textContent = user.name + ' (Eu)';
+  d.append(b, document.createTextNode(t));
+  $('msgs').append(d); $('chatPanel').scrollTop = 1e9; $('msgInput').value = '';
+});
+
+if (user) enter();
+</script>
+</body>
+</html>
