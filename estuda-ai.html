@@ -433,22 +433,79 @@ $('bSum').onclick=e=>run(e.target,async()=>{
   $('sOut').classList.remove('hidden');
 });
 
-/* ---------- TutoriAI ---------- */
+/* ---------- TutoriAI com Conhecimento Completo do Aluno ---------- */
 let hist=[];
 function bubble(t,c){const d=document.createElement('div');d.className='m '+c;d.textContent=t;$('chat').append(d);$('chat').scrollTop=1e9;return d}
-bubble('Olá! Sou o TutoriAI. Cole uma questão ou pergunte sobre qualquer conteúdo.','a');
+bubble('Olá! Sou o TutoriAI, seu mentor de estudos. Conheço todo o seu edital, as disciplinas, seus pontos fortes e fracos e seu plano de estudos. Pode tirar dúvidas sobre qualquer matéria, pedir conselhos de estudo ou colar questões da banca!','a');
+
+function buildTutorContext(){
+  if(!prof) return 'O aluno ainda não configurou o edital do concurso.';
+  const a=prof.analise||{};
+  let c=`[CONTEXTO COMPLETO DO ALUNO NO SISTEMA]\n`;
+  c+=`- Cargo Almejado: ${a.cargo||'Não informado'}\n`;
+  c+=`- Banca Examinadora: ${a.banca||'Não informada'}\n`;
+  c+=`- Rotina de Estudos: ${prof.horas||3} horas disponíveis por dia | Nível: ${prof.nivel||'iniciante'}\n`;
+  
+  if(Array.isArray(a.materias)&&a.materias.length){
+    c+=`- Todas as Matérias do Edital e seus Pesos:\n`;
+    a.materias.forEach(m=>{
+      const topAlta=(m.topicos||[]).filter(t=>t.incidencia==='alta').map(t=>t.nome).slice(0,5).join(', ');
+      c+=`  • ${m.nome} (Peso: ${m.peso||0}% da prova)${topAlta?` [Assuntos de alta incidência: ${topAlta}]`:''}\n`;
+    });
+  }
+
+  if(Array.isArray(a.pegadinhas)&&a.pegadinhas.length){
+    c+=`- Estilo e Pegadinhas Mapeadas da Banca:\n`;
+    a.pegadinhas.forEach(p=>c+=`  • ${p}\n`);
+  }
+
+  // Estatísticas e histórico do aluno
+  const stKeys=Object.keys(stats||{});
+  if(stKeys.length){
+    c+=`- Histórico de Desempenho do Aluno nos Simulados:\n`;
+    let ok=0,tot=0;
+    stKeys.forEach(k=>{
+      const s=stats[k]; ok+=s.ok; tot+=s.total;
+      const pct=s.total?Math.round((s.ok/s.total)*100):0;
+      c+=`  • ${k}: ${pct}% de acerto (${s.ok} acertos de ${s.total} questões respondidas)\n`;
+    });
+    c+=`  • Desempenho Geral: ${tot?Math.round((ok/tot)*100):0}% (${ok}/${tot})\n`;
+  }
+
+  if(Array.isArray(cards)&&cards.length){
+    const due=cards.filter(x=>x.due<=Date.now()).length;
+    c+=`- Flashcards: ${cards.length} cartões criados (${due} pendentes para revisão hoje).\n`;
+  }
+
+  return c;
+}
+
 $('chatForm').onsubmit=async e=>{
   e.preventDefault(); const t=$('chatIn').value.trim(); if(!t)return; $('chatIn').value='';
   bubble(t,'u'); hist.push('Aluno: '+t); const w=bubble('...','a');
   try{
-    const ctx=prof?`O aluno estuda para ${prof.analise.cargo} (banca ${prof.analise.banca}), nível ${prof.nivel}. `:'';
-    const r=await ai(`Você é um professor particular especialista em concursos públicos brasileiros. ${ctx}Responda de forma clara e objetiva em português. Se não tiver certeza, avise em vez de inventar.\n\n${hist.slice(-10).join('\n')}\nProfessor:`);
+    const ctx=buildTutorContext();
+    const prompt=`Você é o TutoriAI, mentor e professor particular de concursos jurídicos e policiais de elite.
+Você tem acesso total e em tempo real a todo o perfil do aluno, seu edital, matérias cobradas, pesos, pegadinhas da banca e seu histórico de acertos/erros no sistema:
+
+${ctx}
+
+SUAS DIRETRIZES DE ATUAÇÃO:
+1. Atue como um mentor e professor estratégico focado na aprovação do aluno.
+2. Seja profundo, claro e didático. Sempre que relevante, fundamente em artigos de lei, súmulas e jurisprudência dos Tribunais Superiores (STF/STJ) e na doutrina majoritária.
+3. Se o aluno pedir orientações sobre rotina ou plano de estudos, utilize as matérias de maior peso e os pontos fracos onde ele tem menor taxa de acerto para dar conselhos cirúrgicos.
+4. Explique questões, aponte as armadilhas clássicas da banca examinadora e ajude o aluno a fixar o conteúdo.
+
+HISTÓRICO DA CONVERSA:
+${hist.slice(-10).join('\n')}
+Professor TutoriAI:`;
+    const r=await ai(prompt);
     w.textContent=r; hist.push('Professor: '+r);
   }catch(err){w.textContent='⚠ '+err.message}
 };
 
 /* ---------- config ---------- */
-$('bSaveCfg').onclick=()=>{cfg={key:$('key').value.trim(),model:$('model').value.trim()||'gemini-2.5-flash'};store.set('cfg',cfg);alert('Salvo!')};
+$('bSaveCfg').onclick=()=>{cfg={key:$('key').value.trim(),model:$('model').value.trim()||'gemini-3.5-flash-lite'};store.set('cfg',cfg);alert('Salvo!')};
 $('bReset').onclick=async()=>{if(confirm('Apagar todos os seus dados?')){await api('DELETE','/api/state');location.reload()}};
 boot();
 </script>
