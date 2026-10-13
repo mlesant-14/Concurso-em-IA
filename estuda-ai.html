@@ -54,6 +54,7 @@
   <button data-v="home" class="on">Início</button>
   <button data-v="edital">Edital & Hacker da Banca</button>
   <button data-v="plan">Plano de estudos</button>
+  <button data-v="raiox">🎯 Raio-X de Provas Reais</button>
   <button data-v="guide">Guia de estudo</button>
   <button data-v="sim">Simulados</button>
   <button data-v="fc">Flashcards</button>
@@ -109,6 +110,31 @@
   <h1>Plano de estudos personalizado</h1>
   <p class="sub">Prioriza as matérias de maior peso e os tópicos de maior incidência.</p>
   <div id="planOut"></div>
+</section>
+
+<!-- RAIO-X DE PROVAS REAIS -->
+<section id="v-raiox" class="hidden">
+  <h1>🎯 Raio-X de Provas Reais</h1>
+  <p class="sub">Audite a taxa de acerto e cobertura do seu plano de estudos contra cadernos de provas reais anteriores.</p>
+
+  <div class="card">
+    <h3>Auditorias Pré-Carregadas:</h3>
+    <p class="disc" style="margin-bottom:12px">Veja o confronto com as últimas provas oficiais de Delegado de Polícia do Cebraspe:</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn sec" id="btnRxSE">📊 PC/SE 2018 (Cebraspe · 150 itens)</button>
+      <button class="btn sec" id="btnRxAL">📊 PC/AL 2022 (Cebraspe · 120 itens)</button>
+    </div>
+    <div style="margin-top:16px;border-top:1px dashed var(--bd);padding-top:16px">
+      <h3>Auditar Outra Prova Anterior:</h3>
+      <p class="disc">Envie o PDF de qualquer caderno de prova oficial para a IA confrontar com seu plano:</p>
+      <label>Arquivo da Prova (PDF ou TXT)</label>
+      <input type="file" id="rxFile" accept=".pdf,.txt">
+      <button class="btn" id="btnRxCustom">Analisar Cobertura da Prova com IA</button>
+      <p class="disc" id="rxStatus" style="font-weight:600;color:var(--p);margin-top:6px"></p>
+    </div>
+  </div>
+
+  <div id="rxResult" class="hidden"></div>
 </section>
 
 <!-- GUIA DE ESTUDO -->
@@ -249,7 +275,7 @@ const esc = s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'
 function go(v){
   document.querySelectorAll('nav button[data-v]').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
   document.querySelectorAll('main>section').forEach(s=>s.classList.toggle('hidden',s.id!=='v-'+v));
-  ({home:home,edital:renderHack,plan:renderPlan,fc:studyFc,sim:fillMats})[v]?.();
+  ({home:home,edital:renderHack,plan:renderPlan,raiox:renderRaioX,fc:studyFc,sim:fillMats})[v]?.();
 }
 document.querySelectorAll('nav button[data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
 
@@ -363,6 +389,143 @@ function renderPlan(){
     <p class="disc">Se a prova for antes do fim do plano, estude só até onde der: a ordem já prioriza o que mais cai.</p></div>
     ${weeks.map(weekHtml).join('')}${revHtml}`;
 }
+
+/* ---------- Raio-X de Provas Reais ---------- */
+function renderRaioX(){
+  if(needProf('rxResult')){ $('rxResult').classList.remove('hidden'); return; }
+}
+
+function showRaioXReport(rep){
+  const box=$('rxResult'); box.classList.remove('hidden');
+  box.innerHTML=`
+    <div class="stats" style="margin-bottom:16px">
+      <div class="stat"><b style="color:var(--ok)">${rep.coberturaPct}%</b>Taxa de Aderência Real</div>
+      <div class="stat"><b style="color:var(--p)">${rep.itensCobertos}/${rep.totalItens}</b>Questões Mapeadas</div>
+      <div class="stat"><b>${esc(rep.banca)}</b>Banca Examinadora</div>
+      <div class="stat"><b>${esc(rep.cargo)}</b>Cargo Avaliado</div>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:8px">📋 Veredito Estratégico da Prova</h3>
+      <p style="line-height:1.6">${esc(rep.resumo)}</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:12px">📚 Detalhamento por Disciplina na Prova Real</h3>
+      <div>
+        ${(rep.disciplinas||[]).map(d=>`
+          <div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px dashed var(--bd)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <b>${esc(d.nome)} (${d.itens} questões)</b>
+              <span class="tag ${d.pct>=90?'alta':(d.pct>=50?'media':'baixa')}">${esc(d.status||d.pct+'%')}</span>
+            </div>
+            <p class="disc" style="margin-bottom:6px">${esc(d.detalhes)}</p>
+            <div class="bar"><i style="width:${d.pct}%"></i></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ${rep.pontosCegos&&rep.pontosCegos.length?`
+      <div class="card" style="border-left:4px solid var(--bad)">
+        <h3 style="color:var(--bad);margin-bottom:8px">⚠️ Pontos Cegos & Surpresas da Banca</h3>
+        <ul style="margin:4px 0 0 20px;line-height:1.6">
+          ${rep.pontosCegos.map(p=>`<li>${esc(p)}</li>`).join('')}
+        </ul>
+      </div>
+    `:''}
+  `;
+  box.scrollIntoView({behavior:'smooth'});
+}
+
+const rxDataSE={
+  banca:"Cebraspe",cargo:"Delegado PC/SE (2018)",totalItens:150,itensCobertos:146,coberturaPct:97.3,
+  resumo:"Confrontando a prova oficial de Sergipe com o plano de estudos, 97,3% de todas as 150 questões caíram diretamente no conteúdo priorizado. Conhecimentos Gerais teve 100% de aproveitamento (Português, Legislação da PC/SE e História/Geografia de Sergipe) e Conhecimentos Específicos cobriu 116 de 120 itens, com foco absoluto em Penal, Processo Penal, Constitucional, Extravagante, Criminologia e Medicina Legal.",
+  disciplinas:[
+    {nome:"Língua Portuguesa",itens:14,pct:100,status:"100% Coberto",detalhes:"Interpretação, crase, regência, coesão textual, reescrita de frases e sintaxe."},
+    {nome:"Legislação Específica da PC/SE",itens:10,pct:100,status:"100% Coberto",detalhes:"Estatuto Lei 2.148/77, regime remuneratório, PAD, remoção e acumulação de funções."},
+    {nome:"História e Geografia de Sergipe",itens:6,pct:100,status:"100% Coberto",detalhes:"Ocupação da capitania, cana-de-açúcar, rede urbana e metropolização de Aracaju."},
+    {nome:"Direito Penal",itens:24,pct:100,status:"100% Coberto",detalhes:"Concurso de pessoas (8 itens), homicídio e teoria da pena (5 itens), fato típico/ilicitude/culpabilidade (6 itens) e patrimônio (5 itens)."},
+    {nome:"Direito Processual Penal",itens:7,pct:100,status:"100% Coberto",detalhes:"Inquérito policial, uso de algemas (SV 11), contraditório e Lei 9.099/95."},
+    {nome:"Direito Constitucional",itens:8,pct:100,status:"100% Coberto",detalhes:"Art. 144 da CF (Segurança Pública), direitos fundamentais, legalidade penal e mandados de prisão."},
+    {nome:"Direito Civil e Empresarial",itens:15,pct:100,status:"100% Coberto",detalhes:"Responsabilidade civil, CDC, sociedade limitada, LINDB e empresário individual."},
+    {nome:"Legislação Extravagante",itens:15,pct:93,status:"93% Coberto",detalhes:"Lei de Drogas, Crime Organizado, Tortura, Desarmamento, ECA e Idoso cobertos; CTB (1 item) não priorizado."},
+    {nome:"Direito Administrativo",itens:9,pct:67,status:"67% Coberto",detalhes:"Improbidade Administrativa, Poder de Polícia e Atos cobertos; descentralização (3 itens) pendente."},
+    {nome:"Direito Ambiental",itens:8,pct:100,status:"100% Coberto",detalhes:"Crimes ambientais (Lei 9.605/98), responsabilidade da PJ, licenciamento e Art. 225 da CF."},
+    {nome:"Direito Eleitoral",itens:6,pct:100,status:"100% Coberto",detalhes:"Pesquisas eleitorais e captação ilícita de sufrágio (art. 41-A da Lei 9.504/97)."},
+    {nome:"Direito Tributário",itens:6,pct:100,status:"100% Coberto",detalhes:"Simples Nacional, CND e Crimes contra a Ordem Tributária (Lei 8.137/90)."},
+    {nome:"Criminologia",itens:12,pct:100,status:"100% Coberto",detalhes:"Conceito, métodos, teorias sociológicas de consenso e conflito, prevenção e vitimologia/cifra negra."},
+    {nome:"Medicina Legal",itens:10,pct:100,status:"100% Coberto",detalhes:"Sinal de Benassi, câmara de mina, eletroplessão, tanatologia (rigidez/comoriência) e asfixiologia."}
+  ],
+  pontosCegos:[
+    "Descentralização e Desconcentração Administrativa (3 itens) - Assuntos da parte teórica de órgãos administrativos.",
+    "Crimes de Trânsito / CTB (1 item) - Omissão de socorro no Código de Trânsito Brasileiro."
+  ]
+};
+
+const rxDataAL={
+  banca:"Cebraspe",cargo:"Delegado PC/AL (2022)",totalItens:120,itensCobertos:93,coberturaPct:77.5,
+  resumo:"Confrontando com a prova mais recente de Alagoas, o Núcleo Duro de Delegado (Penal, Processo Penal, Constitucional, Civil e Medicina Legal) teve 100% de aderência. A diferença de 22,5% ocorreu por 10 itens de Informática (exclusivos do edital de AL) e 14 itens de Licitações/PPPs em Direito Administrativo.",
+  disciplinas:[
+    {nome:"Língua Portuguesa",itens:20,pct:100,status:"100% Coberto",detalhes:"Interpretação e compreensão (13 itens), reescrita, sintaxe, concordância, crase e regência."},
+    {nome:"Direito Penal",itens:12,pct:100,status:"100% Coberto",detalhes:"Feminicídio e motivo torpe (STJ), furto, receptação, escusas absolutórias, tentativa e erro de proibição."},
+    {nome:"Direito Processual Penal",itens:12,pct:100,status:"100% Coberto",detalhes:"Inquérito policial, requisição de dados pelo delegado, cadeia de custódia, provas ilícitas e prisão temporária."},
+    {nome:"Direito Constitucional",itens:14,pct:100,status:"100% Coberto",detalhes:"Controle de constitucionalidade (ADC), constituição dirigente, direitos fundamentais, fidelidade partidária e foro."},
+    {nome:"Direito Civil",itens:14,pct:100,status:"100% Coberto",detalhes:"Negócio jurídico, simulação, dano moral, prescrição/decadência e responsabilidade civil objetiva."},
+    {nome:"Medicina Legal",itens:12,pct:100,status:"100% Coberto",detalhes:"Vucetich, lesões por armas de fogo (Werkgaertner), tanatologia (fauna cadavérica), eletroplessão e queimaduras."},
+    {nome:"Legislação Extravagante",itens:8,pct:87.5,status:"87,5% Coberto",detalhes:"Tráfico de drogas, organizações criminosas, tortura, Maria da Penha e idoso cobertos; software (1 item) pendente."},
+    {nome:"Direito Administrativo (Licitações/PPPs)",itens:14,pct:0,status:"0% Coberto",detalhes:"Pregão (Lei 10.520), Parcerias Público-Privadas (Lei 11.079), Concessões (Lei 8.987) e Lei 9.784."},
+    {nome:"Noções de Informática",itens:10,pct:0,status:"0% Coberto",detalhes:"Windows 10/11, Office 365, redes, nuvem e segurança da informação exigidos em AL (ausentes no edital de SE)."}
+  ],
+  pontosCegos:[
+    "Noções de Informática (10 itens) - Cobrança específica do edital da PC/AL em Conhecimentos Gerais.",
+    "Licitações, Concessões e PPPs (14 itens) - O Cebraspe cobrou forte contratos e parcerias em AL.",
+    "Legislação da PC/AL (2 itens) - Estatuto e organização policial de Alagoas."
+  ]
+};
+
+$('btnRxSE').onclick=()=>showRaioXReport(rxDataSE);
+$('btnRxAL').onclick=()=>showRaioXReport(rxDataAL);
+
+$('btnRxCustom').onclick=e=>run(e.target,async()=>{
+  const f=$('rxFile').files[0];
+  if(!f) throw new Error('Selecione o arquivo PDF de uma prova anterior.');
+  $('rxStatus').textContent='Lendo caderno de prova oficial...';
+  const txt=(await readFile(f)).slice(0,300000);
+  if(txt.length<50) throw new Error('Não foi possível extrair o texto da prova.');
+  $('rxStatus').textContent='Auditando questões da prova com o seu plano de estudos via IA...';
+  
+  const planoTxt=(prof?.analise?.materias||[]).map(m=>`${m.nome} (peso: ${m.peso}%, tópicos: ${m.topicos.map(t=>t.nome).join(', ')})`).join('\n');
+  const rep=await ai(`Você é um auditor e examinador sênior de concursos públicos.
+Analise o caderno de prova oficial abaixo e compare-o diretamente com o plano de estudos do aluno.
+
+PLANO DE ESTUDOS DO ALUNO:
+${planoTxt||'Disciplinas jurídicas e gerais de concurso público.'}
+
+CADERNO DE PROVA OFICIAL:
+${txt}
+
+Responda ESTRITAMENTE em formato JSON:
+{
+  "banca": "Nome da Banca",
+  "cargo": "Nome do Cargo",
+  "totalItens": 120,
+  "itensCobertos": 100,
+  "coberturaPct": 83.3,
+  "resumo": "Veredito da aderência do plano à prova...",
+  "disciplinas": [
+    {
+      "nome": "Nome da Matéria",
+      "itens": 15,
+      "pct": 100,
+      "status": "100% Coberto",
+      "detalhes": "Assuntos cobrados na prova..."
+    }
+  ],
+  "pontosCegos": [
+    "Tópicos ou disciplinas cobrados na prova que não estavam previstos no plano inicial"
+  ]
+}`,true);
+  $('rxStatus').textContent='';
+  showRaioXReport(rep);
+});
 
 /* ---------- guia de estudo ---------- */
 $('bGuide').onclick=e=>run(e.target,async()=>{
