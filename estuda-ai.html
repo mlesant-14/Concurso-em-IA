@@ -272,7 +272,7 @@ async function readFile(f){
   if(f.name.toLowerCase().endsWith('.pdf')){
     pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise; let out='';
-    for(let i=1;i<=pdf.numPages&&out.length<60000;i++){
+    for(let i=1;i<=pdf.numPages&&i<=150;i++){
       const p=await pdf.getPage(i); out+=(await p.getTextContent()).items.map(x=>x.str).join(' ')+'\n';
     } return out;
   }
@@ -281,12 +281,25 @@ async function readFile(f){
 
 /* ---------- onboarding + hacker da banca ---------- */
 $('bOnb').onclick=e=>run(e.target,async()=>{
+  $('oSt').textContent='Lendo arquivo do edital completo...';
   let ed=($('oT').value+'\n'+await readFile($('oF').files[0])).trim();
   if(ed.length<30) throw new Error('Envie o edital (PDF/TXT) ou cole o conteúdo programático.');
-  ed=ed.slice(0,40000); $('oSt').textContent='Analisando edital com IA...';
-  const a=await ai(`Você é analista de concursos públicos brasileiros. Analise o edital abaixo. Identifique a banca, o cargo, e para cada disciplina estime (com base no que historicamente a banca costuma cobrar) o peso percentual na prova e os tópicos do conteúdo programático com incidência (alta/media/baixa) e dificuldade (facil/medio/dificil). Liste também as pegadinhas típicas dessa banca. Seja honesto: são estimativas.
-Responda JSON: {"banca":"","cargo":"","materias":[{"nome":"","peso":0,"topicos":[{"nome":"","incidencia":"alta","dificuldade":"medio"}]}],"pegadinhas":[""]}
-EDITAL:\n${ed}`,true);
+  ed=ed.slice(0,350000); $('oSt').textContent='Analisando edital completo e todas as disciplinas com IA...';
+  const a=await ai(`Você é um analista sênior especialista em editais de concursos públicos de alta complexidade (carreiras jurídicas e policiais: Delegado de Polícia, Promotoria, Magistratura, etc.).
+Analise MINUCIOSAMENTE todo o edital abaixo, dando total atenção à seção de OBJETOS DE AVALIAÇÃO / CONTEÚDO PROGRAMÁTICO.
+
+SUAS INSTRUÇÕES OBRIGATÓRIAS:
+1. Identifique o cargo e a banca examinadora.
+2. Identifique e extraia TODAS as matérias/disciplinas que constam no conteúdo programático do edital (ex: Direito Penal, Direito Processual Penal, Direito Constitucional, Direito Administrativo, Legislação Especial/Extravagante, Criminologia, Medicina Legal, Direito Civil, Direito Empresarial, Direito Processual Civil, Direito Ambiental, Direito Eleitoral, Direito Tributário, Língua Portuguesa, Legislação Específica da PC, Conhecimentos Regionais, etc.). NÃO omita nenhuma matéria cobrada no edital!
+3. Estime o peso percentual (%) de cada disciplina na prova com base na relevância para o cargo (a soma dos pesos deve totalizar aproximadamente 100%).
+4. Para CADA matéria, liste os principais tópicos e eixos temáticos cobrados no edital (liste os tópicos reais e essenciais de cada matéria), classificando com incidência (alta/media/baixa) e dificuldade (facil/medio/dificil).
+5. Liste as principais pegadinhas e estilo de cobrança característicos dessa banca examinadora.
+
+Responda ESTRITAMENTE em formato JSON:
+{"banca":"Nome da Banca","cargo":"Nome do Cargo","materias":[{"nome":"Nome da Disciplina","peso":15,"topicos":[{"nome":"Nome do Tópico","incidencia":"alta","dificuldade":"dificil"}]}],"pegadinhas":["Pegadinha 1","Pegadinha 2"]}
+
+EDITAL:
+${ed}`,true);
   prof={horas:+$('oH').value,nivel:$('oN').value,edital:ed.slice(0,3000),analise:a};
   store.set('prof',prof); $('oSt').textContent=''; go('edital');
 });
