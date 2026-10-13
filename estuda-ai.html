@@ -216,7 +216,7 @@ const store = {
 };
 let cfg,cards,stats,prof;   // prof = {horas,nivel,edital,analise}
 function loadState(){
-  cfg = store.get('cfg',{key:'',model:'gemini-2.5-flash'});
+  cfg = store.get('cfg',{key:'',model:'gemini-3.5-flash-lite'});
   cards = store.get('cards',[]); stats = store.get('stats',{}); prof = store.get('prof',null);
   $('key').value=cfg.key; $('model').value=cfg.model;
   document.body.classList.toggle('dark',!!store.get('dark',false));
