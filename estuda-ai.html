@@ -44,7 +44,28 @@
   .topic button{font-size:.75rem;padding:4px 10px;border-radius:6px;border:0;background:var(--soft);color:var(--tx);cursor:pointer}
   .steps{display:flex;gap:6px;margin-bottom:14px}.steps i{flex:1;height:5px;border-radius:3px;background:var(--bd)}.steps i.on{background:var(--p)}
   .disc{font-size:.78rem;color:var(--mut);margin-top:8px}
-  @media(max-width:760px){body{grid-template-columns:1fr}nav{flex-direction:row;overflow-x:auto}nav h2,nav .sp{display:none}}
+  @media(max-width:768px){
+    body{grid-template-columns:1fr}
+    nav{
+      position:sticky;top:0;z-index:99;
+      flex-direction:row;overflow-x:auto;white-space:nowrap;
+      padding:8px 8px;gap:6px;box-shadow:0 2px 10px #0003;
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;
+    }
+    nav::-webkit-scrollbar{display:none}
+    nav h2,nav .sp,#who{display:none}
+    nav button{flex-shrink:0;padding:8px 12px;font-size:.85rem}
+    main{padding:14px 10px;width:100%}
+    .card{padding:14px;border-radius:10px;margin-bottom:12px}
+    h1{font-size:1.25rem}
+    .stats{grid-template-columns:repeat(2,1fr);gap:8px}
+    .stat{padding:12px 6px}
+    .stat b{font-size:1.35rem}
+    .row{grid-template-columns:1fr;gap:8px}
+    .chat{height:52vh;max-height:400px}
+    .fc{min-height:140px;font-size:1.05rem;padding:16px}
+    #auth .card{width:92%!important;max-width:360px;margin:12px}
+  }
 </style>
 </head>
 <body>
