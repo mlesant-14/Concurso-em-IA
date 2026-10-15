@@ -88,6 +88,7 @@
   <div id="dash" class="hidden">
     <h1>Seu painel</h1><p class="sub" id="dSub"></p>
     <div class="stats">
+      <div class="stat"><b id="sProg" style="color:var(--ok)">0%</b>Plano Estudado</div>
       <div class="stat"><b id="sAns">0</b>Questões respondidas</div>
       <div class="stat"><b id="sAcc">0%</b>Acerto geral</div>
       <div class="stat"><b id="sCards">0</b>Flashcards</div>
@@ -240,10 +241,11 @@ const store = {
   get:(k,d)=>cache[k]!==undefined?cache[k]:d,
   set:(k,v)=>{cache[k]=v; api('PUT','/api/kv/'+k,{v}).catch(e=>console.warn('Falha ao salvar',k,e.message))}
 };
-let cfg,cards,stats,prof;   // prof = {horas,nivel,edital,analise}
+let cfg,cards,stats,prof,done;   // prof = {horas,nivel,edital,analise}, done = { "Mat||Top": true }
 function loadState(){
   cfg = store.get('cfg',{key:'',model:'gemini-3.5-flash-lite'});
   cards = store.get('cards',[]); stats = store.get('stats',{}); prof = store.get('prof',null);
+  done = store.get('done', {});
   $('key').value=cfg.key; $('model').value=cfg.model;
   document.body.classList.toggle('dark',!!store.get('dark',false));
 }
@@ -336,10 +338,16 @@ function home(){
   let ok=0,tot=0; Object.values(stats).forEach(s=>{ok+=s.ok;tot+=s.total});
   $('sAns').textContent=tot; $('sAcc').textContent=tot?Math.round(ok/tot*100)+'%':'0%';
   $('sCards').textContent=cards.length; $('sDue').textContent=cards.filter(c=>c.due<=Date.now()).length;
+  
+  const allT=(prof.analise?.materias||[]).flatMap(m=>m.topicos.map(t=>m.nome+'||'+t.nome));
+  const doneCount=allT.filter(k=>done&&done[k]).length;
+  const donePct=allT.length?Math.round((doneCount/allT.length)*100):0;
+  if($('sProg')) $('sProg').textContent=donePct+'%';
+
   $('bySubj').innerHTML=Object.entries(stats).map(([m,s])=>{const p=Math.round(s.ok/s.total*100);
     return `<div style="margin:10px 0"><div style="display:flex;justify-content:space-between"><span>${esc(m)}</span><span>${p}% (${s.ok}/${s.total})</span></div><div class="bar"><i style="width:${p}%"></i></div></div>`}).join('')||'<p class="sub">Faça simulados para ver sua evolução.</p>';
 }
-$('bRedo').onclick=()=>{prof=null;store.set('prof',null);home()};
+$('bRedo').onclick=()=>{prof=null;done={};store.set('prof',null);store.set('done',{});home()};
 
 function needProf(el){ if(prof) return false; $(el).innerHTML='<div class="card">Envie seu edital na tela <b>Início</b> primeiro.</div>'; return true }
 function renderHack(){
@@ -355,7 +363,7 @@ function renderHack(){
   $('hkOut').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>{$('gIn').value=b.dataset.t;go('guide')});
 }
 
-/* ---------- plano de estudos (gerado localmente dos pesos) ---------- */
+/* ---------- plano de estudos com checklist interativo ---------- */
 function renderPlan(){
   if(needProf('planOut')) return;
   const ms=prof.analise.materias, tot=ms.reduce((s,m)=>s+m.peso,0)||1, H=prof.horas;
@@ -371,23 +379,83 @@ function renderPlan(){
   newWeek(); newDay();
   while(i<topics.length){
     const t=topics[i]; const need=rest||t.h; const h=Math.min(need,left);
-    cur.days[cur.days.length-1].items.push(`${esc(t.m)} → ${esc(t.t)} <span class="tag ${t.inc}">${t.inc}</span> (${+h.toFixed(1)}h)`);
+    cur.days[cur.days.length-1].items.push({
+      m: t.m,
+      t: t.t,
+      inc: t.inc,
+      h: +h.toFixed(1),
+      k: t.m + '||' + t.t
+    });
     left-=h; rest=+(need-h).toFixed(2); if(rest<=0){rest=0;i++}
     if(left<0.2&&i<topics.length) newDay();
   }
   const study=weeks.length;
   const rev=Math.max(1,Math.round(study*0.15));           // semanas finais de revisão/simulados
-  const weekHtml=(w,k)=>`<details ${k===0?'open':''} class="card"><summary><b>Semana ${k+1}</b></summary>
-    ${w.days.map(d=>`<div class="day"><b>${d.n}</b><ul style="margin:4px 0 0 20px">${d.items.map(x=>`<li>${x}</li>`).join('')}</ul></div>`).join('')}
-    <div class="day"><b>Domingo</b> — Revisão dos flashcards + simulado da semana</div></details>`;
-  const revHtml=Array.from({length:rev},(_,k)=>`<details class="card"><summary><b>Semana ${study+k+1} · Revisão final</b></summary>
+  
+  const totalTopics = topics.length;
+  const doneCount = topics.filter(t => done && done[t.m + '||' + t.t]).length;
+  const donePct = totalTopics ? Math.round((doneCount / totalTopics) * 100) : 0;
+
+  const checkCard = `
+    <div class="card" style="background:var(--soft);border-left:4px solid var(--ok);margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+        <h3 style="margin:0">✅ Checklist de Tópicos Estudados</h3>
+        <b style="font-size:1.15rem;color:var(--ok)">${doneCount} de ${totalTopics} tópicos concluídos (${donePct}%)</b>
+      </div>
+      <div class="bar" style="height:12px;border-radius:6px;background:var(--card)"><i style="width:${donePct}%;background:var(--ok)"></i></div>
+      <p class="disc" style="margin-top:8px">Marque a caixinha ao lado de cada tópico quando terminar de estudar. O checklist salva automaticamente na sua conta em nuvem.</p>
+    </div>
+  `;
+
+  const weekHtml=(w,k)=>`<details ${k===0?'open':''} class="card"><summary style="cursor:pointer"><b>Semana ${k+1}</b></summary>
+    ${w.days.map(d=>`
+      <div class="day">
+        <b style="display:block;margin-bottom:6px">${d.n}</b>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${d.items.map(it=>{
+            const isDone = !!(done && done[it.k]);
+            return `
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:6px;background:var(--bg);border:1px solid ${isDone?'var(--ok)':'var(--bd)'};gap:8px">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;margin:0">
+                  <input type="checkbox" data-chk="${esc(it.k)}" ${isDone?'checked':''} style="width:18px;height:18px;cursor:pointer">
+                  <span style="${isDone?'text-decoration:line-through;opacity:0.55':''}">
+                    <b>${esc(it.m)}</b> → ${esc(it.t)} <span class="tag ${it.inc}">${it.inc}</span> (${it.h}h)
+                  </span>
+                </label>
+                <button class="btn sec" data-estudar="${esc(it.t)}" style="padding:3px 8px;font-size:0.75rem;margin:0;border-radius:6px">Estudar</button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `).join('')}
+    <div class="day" style="margin-top:8px"><b>Domingo</b> — Revisão dos flashcards + simulado da semana</div></details>`;
+  const revHtml=Array.from({length:rev},(_,k)=>`<details class="card"><summary style="cursor:pointer"><b>Semana ${study+k+1} · Revisão final</b></summary>
     <div class="day">Simulados completos da banca (${esc(prof.analise.banca||'')}), refazer questões erradas e revisar flashcards vencidos. Reforce os tópicos de maior incidência e dificuldade.</div></details>`).join('');
   const lvl={iniciante:'Comece pelos tópicos de dificuldade fácil e incidência alta; avance gradualmente.',intermediario:'Alterne teoria e questões na mesma proporção.',avancado:'Priorize questões e simulados; use a teoria só para lacunas.'}[prof.nivel];
-  $('planOut').innerHTML=`<div class="card"><p><b>Cobertura:</b> todos os ${topics.length} tópicos do edital em <b>${study} semanas</b> de estudo + ${rev} de revisão final (${study+rev} no total), com ${H}h/dia, de segunda a sábado.</p>
+  $('planOut').innerHTML=`${checkCard}
+    <div class="card"><p><b>Cobertura:</b> todos os ${topics.length} tópicos do edital em <b>${study} semanas</b> de estudo + ${rev} de revisão final (${study+rev} no total), com ${H}h/dia, de segunda a sábado.</p>
     <p style="margin-top:6px"><b>Ordem:</b> incidência alta → média → baixa; dentro de cada nível, as matérias de maior peso primeiro.</p>
     <p style="margin-top:6px"><b>Estratégia (${prof.nivel}):</b> ${lvl}</p>
     <p class="disc">Se a prova for antes do fim do plano, estude só até onde der: a ordem já prioriza o que mais cai.</p></div>
     ${weeks.map(weekHtml).join('')}${revHtml}`;
+
+  $('planOut').querySelectorAll('input[data-chk]').forEach(chk => {
+    chk.onchange = () => {
+      const k = chk.dataset.chk;
+      if (chk.checked) done[k] = true;
+      else delete done[k];
+      store.set('done', done);
+      renderPlan();
+      home();
+    };
+  });
+  $('planOut').querySelectorAll('button[data-estudar]').forEach(b => {
+    b.onclick = () => {
+      $('gIn').value = b.dataset.estudar;
+      go('guide');
+    };
+  });
 }
 
 /* ---------- Raio-X de Provas Reais ---------- */
@@ -638,6 +706,14 @@ function buildTutorContext(){
   if(Array.isArray(cards)&&cards.length){
     const due=cards.filter(x=>x.due<=Date.now()).length;
     c+=`- Flashcards: ${cards.length} cartões criados (${due} pendentes para revisão hoje).\n`;
+  }
+
+  // Progresso do Checklist de Estudos
+  if(prof&&prof.analise&&Array.isArray(prof.analise.materias)){
+    const allT=prof.analise.materias.flatMap(m=>m.topicos.map(t=>m.nome+'||'+t.nome));
+    const dCount=allT.filter(k=>done&&done[k]).length;
+    const dPct=allT.length?Math.round((dCount/allT.length)*100):0;
+    c+=`- Progresso no Plano de Estudos: ${dCount} de ${allT.length} tópicos concluídos (${dPct}% do edital já estudado no checklist).\n`;
   }
 
   return c;

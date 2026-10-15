@@ -56,7 +56,7 @@ async function initDb() {
 }
 
 const hash = (senha, salt) => crypto.scryptSync(senha, salt, 64).toString('hex');
-const KEYS = new Set(['cfg', 'cards', 'stats', 'prof', 'dark']);
+const KEYS = new Set(['cfg', 'cards', 'stats', 'prof', 'dark', 'done']);
 
 function readBody(req) {
   return new Promise((ok, no) => {
